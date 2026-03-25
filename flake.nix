@@ -30,7 +30,11 @@
 
       # Mac用devShell
       devShells.aarch64-darwin.default = pkgsDarwin.mkShell {
-        packages = [ pkgsDarwin.go ];
+        packages = [
+          pkgsDarwin.go
+          pkgsDarwin.git
+          arion.packages.aarch64-darwin.arion
+        ];
       };
     };
 }
