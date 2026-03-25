@@ -5,16 +5,18 @@
   };
   outputs = { self, nixpkgs, arion }:
     let
-      pkgs = nixpkgs.legacyPackages.x86_64-linux;
+      pkgsLinux = nixpkgs.legacyPackages.x86_64-linux;
+      pkgsDarwin = nixpkgs.legacyPackages.aarch64-darwin;
     in
     {
-      packages.x86_64-linux.default = pkgs.buildGoModule {
+      # Linuxビルド（Docker用）
+      packages.x86_64-linux.default = pkgsLinux.buildGoModule {
         name = "go-app";
         src = ./.;
         vendorHash = null;
       };
 
-      packages.x86_64-linux.docker = pkgs.dockerTools.buildImage {
+      packages.x86_64-linux.docker = pkgsLinux.dockerTools.buildImage {
         name = "go-app";
         tag = "latest";
         copyToRoot = [ self.packages.x86_64-linux.default ];
@@ -26,8 +28,9 @@
 
       apps.x86_64-linux.arion = arion.apps.x86_64-linux.arion;
 
-      devShells.x86_64-linux.default = pkgs.mkShell {
-        packages = [ pkgs.go ];
+      # Mac用devShell
+      devShells.aarch64-darwin.default = pkgsDarwin.mkShell {
+        packages = [ pkgsDarwin.go ];
       };
     };
 }
