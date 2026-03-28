@@ -1,5 +1,10 @@
 { pkgs, lib, config, ... }:
 
+let
+  environments = import ./nix/environments.nix;
+  env = environments.dev;
+  lib' = import ./nix/lib.nix { inherit pkgs lib; };
+in
 {
   # Go
   languages.go = {
@@ -7,50 +12,46 @@
     package = pkgs.go_1_26;
   };
 
-  # 開発ツール
   packages = with pkgs; [
     git
-    goose # マイグレーション
-    sqlc # SQL → Go コード生成
-    postgresql # psql クライアント
-    oapi-codegen #OpenAPI → Goコード生成
+    goose
+    sqlc
+    postgresql
+    oapi-codegen
+    docker
+    sops
   ];
 
-  # PostgreSQL サービス
+  # PostgreSQL（ローカル開発用、コンテナ外）
   services.postgres = {
     enable = true;
     package = pkgs.postgresql_16;
     listen_addresses = "127.0.0.1";
     port = 5432;
-
     initialDatabases = [
-      { name = "my_dev"; }
+      { name = env.DATABASE_NAME; }
     ];
-
-    # データは .devenv/state/postgres 以下に永続化される
     settings = {
-      log_statement = "all"; # 開発中は全クエリログ
+      log_statement = "all";
       log_min_duration_statement = 0;
     };
   };
 
-  # 環境変数（アプリから参照）
   env = {
-    DATABASE_URL = "postgresql://localhost:5432/my_dev?sslmode=disable";
+    APP_ENV = "development";
+    DATABASE_URL = lib'.buildDatabaseUrl env;
+    SERVER_PORT = env.SERVER_PORT;
   };
 
-  # シェルに入ったときのフック
   enterShell = ''
-    echo "=== Dev Environment ==="
-    echo "Go:       $(go version)"
-    echo "DB:       $DATABASE_URL"
+    echo "=== compose-nix dev ==="
+    echo "Go:   $(go version)"
+    echo "DB:   $DATABASE_URL"
     echo ""
-    echo "devenv up  → PostgreSQL 起動"
-    echo "psql my_dev → DB 接続"
+    echo "Commands:"
+    echo "  devenv up          → PostgreSQL 起動"
+    echo "  nix run .#dev-up   → Docker で全サービス起動"
+    echo "  nix run .#dev-down → Docker 停止"
+    echo "  nix run .#migrate  → マイグレーション"
   '';
-
-  # プロセス管理（devenv up で起動）
-  # PostgreSQL は services.postgres.enable で自動登録されるため
-  # 追加のプロセスがあればここに定義
-  # processes.api.exec = "go run ./cmd/api";
 }
